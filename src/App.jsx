@@ -1,8 +1,5 @@
 import React from 'react';
-import Navbar from './components/Navbar/Navbar';
-import Hero from './components/Hero/Hero';
-import SearchBar from './components/SearchBar/SearchBar';
-import './App.scss';
+
 
 /**
  * App Component
@@ -16,14 +13,7 @@ import './App.scss';
 function App() {
   return (
     <div className="app">
-      {/* Navigation bar at the top */}
-      <Navbar />
-
-      {/* Hero section with background image and main message */}
-      <Hero />
-
-      {/* Search bar with filters */}
-      <SearchBar />
+     <p>heloo</p>
     </div>
   );
 }
