@@ -1,0 +1,230 @@
+/**
+ * SearchBar Styles
+ * 
+ * Beautiful, modern search bar with glassmorphism effect
+ * (that's the frosted glass look that's super trendy!)
+ */
+
+.search-bar {
+  padding: 4rem 2rem;
+
+  // Gradient background from light blue to light purple
+  background: linear-gradient(135deg, hsl(210, 100%, 97%), hsl(250, 100%, 97%));
+
+  // Position relative for absolute children
+  position: relative;
+
+  .search-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /**
+   * Section Title
+   */
+  .search-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 2.5rem;
+
+    // Gradient text color
+    background: linear-gradient(135deg, hsl(210, 80%, 40%), hsl(200, 80%, 50%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /**
+   * Search Form
+   * 
+   * Grid layout that automatically adjusts based on screen size
+   */
+  .search-form {
+    // Glassmorphism effect - frosted glass look
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    border-radius: 20px;
+    padding: 2.5rem;
+
+    // Subtle shadow for depth
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+    // Border with slight transparency
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    // Grid layout - automatically creates columns
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    align-items: end; // Align to bottom so button lines up
+  }
+
+  /**
+   * Individual Search Field
+   */
+  .search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    label {
+      font-weight: 600;
+      color: hsl(210, 20%, 30%);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      .icon {
+        font-size: 1.2rem;
+      }
+    }
+
+    /**
+     * Input and Select Styles
+     */
+    input,
+    select {
+      padding: 0.9rem 1rem;
+      border: 2px solid hsl(210, 20%, 90%);
+      border-radius: 10px;
+      font-size: 1rem;
+
+      // Smooth transitions
+      transition: all 0.3s ease;
+
+      background: white;
+      color: hsl(210, 20%, 20%);
+
+      // Remove default select arrow on some browsers
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      padding-right: 2.5rem;
+
+      /**
+       * Focus State - when user clicks on input
+       */
+      &:focus {
+        outline: none;
+        border-color: hsl(210, 80%, 50%);
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+      }
+
+      /**
+       * Placeholder text color
+       */
+      &::placeholder {
+        color: hsl(210, 20%, 60%);
+      }
+    }
+
+    // Input fields don't need the arrow
+    input {
+      background-image: none;
+      padding-right: 1rem;
+    }
+  }
+
+  /**
+   * Search Button
+   */
+  .search-button {
+    padding: 0.9rem 2rem;
+
+    // Gradient background
+    background: linear-gradient(135deg, hsl(210, 80%, 50%), hsl(200, 80%, 60%));
+
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    // Smooth transitions
+    transition: all 0.3s ease;
+
+    // Shadow for depth
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    .icon {
+      font-size: 1.2rem;
+    }
+
+    /**
+     * Hover Effect
+     */
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+    }
+
+    /**
+     * Active Effect - when button is clicked
+     */
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  /**
+   * RESPONSIVE DESIGN
+   */
+
+  // Tablet screens
+  @media (max-width: 768px) {
+    padding: 3rem 1.5rem;
+
+    .search-title {
+      font-size: 2rem;
+    }
+
+    .search-form {
+      padding: 2rem;
+
+      // Single column on tablets
+      grid-template-columns: 1fr;
+    }
+
+    .search-button {
+      width: 100%;
+    }
+  }
+
+  // Mobile phones
+  @media (max-width: 480px) {
+    padding: 2rem 1rem;
+
+    .search-title {
+      font-size: 1.8rem;
+      margin-bottom: 2rem;
+    }
+
+    .search-form {
+      padding: 1.5rem;
+      gap: 1.2rem;
+    }
+
+    .search-field {
+      label {
+        font-size: 0.85rem;
+      }
+
+      input,
+      select {
+        padding: 0.8rem;
+        font-size: 0.95rem;
+      }
+    }
+  }
+}

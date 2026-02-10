@@ -1,0 +1,42 @@
+/**
+ * App Global Styles
+ * 
+ * These styles apply to the entire application.
+ * Think of it as the foundation of a house - everything builds on top of it!
+ */
+
+.app {
+  // Remove any default margins
+  margin: 0;
+  padding: 0;
+
+  // Ensure smooth scrolling when clicking navigation links
+  scroll-behavior: smooth;
+}
+
+/**
+ * Global Resets
+ * 
+ * These reset default browser styles so everything looks consistent
+ * across different browsers (Chrome, Firefox, Safari, etc.)
+ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box; // Makes width/height calculations easier
+}
+
+/**
+ * Body Styles
+ */
+body {
+  // Use the Lato font we loaded in index.html
+  font-family: 'Lato', sans-serif;
+
+  // Prevent horizontal scrolling
+  overflow-x: hidden;
+
+  // Smooth text rendering
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
