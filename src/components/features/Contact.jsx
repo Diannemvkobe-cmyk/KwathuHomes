@@ -1,3 +1,20 @@
+/*
+Purpose
+- Provides a friendly Contact page where visitors can reach the team.
+- Offers a contact form and direct phone/email/office details.
+- Uses subtle animations for a calm, welcoming experience.
+
+How It Works
+- Maintains local form state for name, email, subject, message.
+- On submit, tries POST to /api/contact (API_BASE_URL). If the API isn’t ready,
+  it gracefully falls back to opening a prefilled email (mailto).
+- Displays success feedback and temporarily disables the button after sending.
+- Uses Framer Motion for reveal animations across sections.
+
+Where It Fits
+- Shown from the main app navigation as the “Contact” feature.
+- Accepts onBack to return the user to the previous/home view.
+*/
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -12,6 +29,9 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
+const CONTACT_EMAIL = 'diannemvkobe@icloud.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 const Contact = ({ onBack }) => {
   const [formState, setFormState] = useState({
     name: '',
@@ -21,17 +41,57 @@ const Contact = ({ onBack }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formState,
+          to: CONTACT_EMAIL
+        })
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        if (!response.ok || text.trim().startsWith('<!DOCTYPE')) {
+          throw new Error('Contact API is not configured correctly yet.');
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to send message.');
+      }
+
       setIsSubmitting(false);
       setIsSent(true);
       setFormState({ name: '', email: '', subject: '', message: '' });
       setTimeout(() => setIsSent(false), 5000);
-    }, 1500);
+    } catch (err) {
+      const mailSubject = encodeURIComponent(formState.subject);
+      const mailBody = encodeURIComponent(
+        `Name: ${formState.name}\nEmail: ${formState.email}\n\n${formState.message}`
+      );
+      const mailtoUrl = `mailto:${CONTACT_EMAIL}?subject=${mailSubject}&body=${mailBody}`;
+      window.location.href = mailtoUrl;
+
+      setIsSubmitting(false);
+      setIsSent(true);
+      setError('');
+      setFormState({ name: '', email: '', subject: '', message: '' });
+      setTimeout(() => setIsSent(false), 5000);
+    }
   };
 
   const containerVariants = {
@@ -50,7 +110,7 @@ const Contact = ({ onBack }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans antialiased text-slate-900 dark:text-slate-100 pb-20">
       {/* Navigation */}
       <nav className="fixed top-6 left-6 z-50">
         <button
@@ -88,7 +148,7 @@ const Contact = ({ onBack }) => {
         <div className="grid lg:grid-cols-12 gap-12">
           {/* Contact Information */}
           <motion.div variants={itemVariants} className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+            <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50">
               <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-emerald-500/20">
                 <Phone className="text-white w-6 h-6" />
               </div>
@@ -102,13 +162,13 @@ const Contact = ({ onBack }) => {
               </p>
             </div>
 
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+            <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50">
               <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center mb-8">
                 <Mail className="text-emerald-400 w-6 h-6" />
               </div>
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Email Address</h3>
-              <a href="mailto:diannemvkobe@icloud.com" className="text-xl md:text-2xl font-black text-slate-900 tracking-tight hover:text-emerald-600 transition-colors break-all">
-                diannemvkobe@icloud.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-xl md:text-2xl font-black text-slate-900 tracking-tight hover:text-emerald-600 transition-colors break-all">
+                {CONTACT_EMAIL}
               </a>
               <p className="text-sm text-slate-500 font-medium mt-2 flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-emerald-600" />
@@ -116,7 +176,7 @@ const Contact = ({ onBack }) => {
               </p>
             </div>
 
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+            <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50">
               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-8">
                 <MapPin className="text-emerald-600 w-6 h-6" />
               </div>
@@ -131,10 +191,7 @@ const Contact = ({ onBack }) => {
           </motion.div>
 
           {/* Contact Form */}
-          <motion.div
-            variants={itemVariants}
-            className="lg:col-span-8 bg-white p-8 md:p-12 rounded-[4rem] border border-slate-100 shadow-2xl shadow-slate-200/50"
-          >
+          <motion.div variants={itemVariants} className="lg:col-span-8 bg-white dark:bg-slate-800 p-8 md:p-12 rounded-[4rem] border border-slate-100 dark:border-slate-700 shadow-2xl shadow-slate-200/50">
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-3">
@@ -189,8 +246,8 @@ const Contact = ({ onBack }) => {
                 type="submit"
                 disabled={isSubmitting || isSent}
                 className={`w-full py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-2xl ${isSent
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1 active:scale-95 shadow-emerald-900/20'
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1 active:scale-95 shadow-emerald-900/20'
                   }`}
               >
                 {isSubmitting ? (
@@ -207,6 +264,11 @@ const Contact = ({ onBack }) => {
                   </>
                 )}
               </button>
+              {error && (
+                <p className="text-red-500 text-[11px] font-semibold text-center">
+                  {error}
+                </p>
+              )}
             </form>
           </motion.div>
         </div>

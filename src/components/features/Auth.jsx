@@ -1,3 +1,18 @@
+/*
+Purpose
+- Handles user Authentication: Login and Registration in a single screen.
+- Keeps the experience simple and friendly for Buyers and Sellers.
+
+How It Works
+- Toggles between Login and Register views with shared inputs.
+- Validates passwords on Register and posts to /auth endpoints via apiUrl.
+- On success, stores user via AuthContext and calls onAuthSuccess.
+- Provides role selection when registering (Buyer or Seller).
+
+Where It Fits
+- Opened from navigation when the user needs to sign in or sign up.
+- Accepts onBack to return to the previous/home view.
+*/
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,9 +24,12 @@ import {
   ChevronLeft,
   Briefcase,
   UserCheck,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { apiUrl } from '../../utils/api';
 
 const Auth = ({ onBack, onAuthSuccess }) => {
   const { login } = useAuth();
@@ -19,11 +37,14 @@ const Auth = ({ onBack, onAuthSuccess }) => {
   const [role, setRole] = useState('Buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
 
   const handleSubmit = async (e) => {
@@ -31,13 +52,20 @@ const Auth = ({ onBack, onAuthSuccess }) => {
     setLoading(true);
     setError('');
 
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    if (!isLogin && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    const endpoint = isLogin ? '/auth/login' : '/auth/register';
+    const { confirmPassword, ...registerData } = formData;
     const body = isLogin
       ? { email: formData.email, password: formData.password }
-      : { ...formData, role };
+      : { ...registerData, role };
 
     try {
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -59,7 +87,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-5%] w-80 h-80 bg-emerald-400 rounded-full blur-[120px]" />
@@ -70,7 +98,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         onClick={onBack}
-        className="absolute top-10 left-10 flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-black text-xs uppercase tracking-widest transition-all group"
+        className="absolute top-10 left-10 flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-black text-xs transition-all group"
       >
         <span className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center group-hover:border-emerald-500 group-hover:bg-emerald-50 transition-all">
           <ChevronLeft className="w-4 h-4" />
@@ -83,7 +111,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
           <div className="w-16 h-16 bg-emerald-600 rounded-[1.5rem] flex items-center justify-center shadow-2xl shadow-emerald-500/20 rotate-3 mx-auto mb-6">
             <Home className="text-white w-8 h-8 -rotate-3" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">
+          <h1 className="text-4xl font-black tracking-tighter mb-2">
             KWATHU<span className="text-emerald-600">HOMES</span>
           </h1>
           <p className="text-slate-500 font-medium">
@@ -93,20 +121,20 @@ const Auth = ({ onBack, onAuthSuccess }) => {
 
         <motion.div
           layout
-          className="bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-slate-200/50 border border-slate-100"
+          className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-2xl shadow-slate-200/50 border border-slate-100 dark:border-slate-700"
         >
           {/* View Toggle */}
           <div className="flex bg-slate-50 p-1.5 rounded-2xl mb-8">
             <button
               onClick={() => setIsLogin(true)}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isLogin ? 'bg-white shadow-xl text-emerald-600' : 'text-slate-400 hover:text-slate-600'
+              className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${isLogin ? 'bg-white shadow-xl text-emerald-600' : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               Login
             </button>
             <button
               onClick={() => setIsLogin(false)}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isLogin ? 'bg-white shadow-xl text-emerald-600' : 'text-slate-400 hover:text-slate-600'
+              className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${!isLogin ? 'bg-white shadow-xl text-emerald-600' : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               Register
@@ -133,7 +161,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
                         }`}
                     >
                       <UserCheck className="w-6 h-6" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Buyer</span>
+                      <span className="text-[10px] font-black">Buyer</span>
                     </button>
                     <button
                       type="button"
@@ -144,7 +172,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
                         }`}
                     >
                       <Briefcase className="w-6 h-6" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Seller</span>
+                      <span className="text-[10px] font-black">Seller</span>
                     </button>
                   </div>
 
@@ -153,8 +181,8 @@ const Auth = ({ onBack, onAuthSuccess }) => {
                     <input
                       required
                       type="text"
-                      placeholder="FULL NAME"
-                      className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-12 pr-6 py-4 text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-600 focus:bg-white transition-all shadow-sm"
+                      placeholder="Full name"
+                      className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-12 pr-6 py-4 text-xs font-black outline-none focus:border-emerald-600 focus:bg-white transition-all shadow-sm"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     />
@@ -168,8 +196,8 @@ const Auth = ({ onBack, onAuthSuccess }) => {
               <input
                 required
                 type="email"
-                placeholder="EMAIL ADDRESS"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-12 pr-6 py-4 text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-600 focus:bg-white transition-all shadow-sm"
+                placeholder="Email address"
+                className="w-full bg-slate-50 dark:bg-slate-700/50 border-2 border-slate-50 dark:border-slate-700 rounded-2xl pl-12 pr-6 py-4 text-xs font-black outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-sm"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
@@ -179,16 +207,44 @@ const Auth = ({ onBack, onAuthSuccess }) => {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 required
-                type="password"
-                placeholder="PASSWORD"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-12 pr-6 py-4 text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-600 focus:bg-white transition-all shadow-sm"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                className="w-full bg-slate-50 dark:bg-slate-700/50 border-2 border-slate-50 dark:border-slate-700 rounded-2xl pl-12 pr-12 py-4 text-xs font-black outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-sm"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
 
+            {!isLogin && (
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  required
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border-2 border-slate-50 dark:border-slate-700 rounded-2xl pl-12 pr-12 py-4 text-xs font-black outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-sm"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            )}
+
             {error && (
-              <p className="text-red-500 text-[10px] font-bold uppercase tracking-widest text-center px-4">
+              <p className="text-red-500 text-[10px] font-bold text-center px-4">
                 {error}
               </p>
             )}
@@ -196,7 +252,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
             <button
               disabled={loading}
               type="submit"
-              className="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-600/30 hover:bg-emerald-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
+              className="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-xs shadow-xl shadow-emerald-600/30 hover:bg-emerald-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -210,7 +266,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
           </form>
         </motion.div>
 
-        <p className="mt-8 text-center text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">
+        <p className="mt-8 text-center text-slate-400 dark:text-slate-500 text-[10px] font-bold">
           By continuing, you agree to our <span className="text-emerald-600 hover:underline cursor-pointer">Terms of Service</span>
         </p>
       </div>

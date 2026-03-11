@@ -1,3 +1,15 @@
+/*
+Purpose
+- Renders subtle animated vertical beams in the background.
+- Adds calm motion without distracting from primary content.
+
+How It Works
+- Pure presentational component; no props or state.
+- Uses a simple CSS animation on repeated beam elements.
+
+Where It Fits
+- Used behind hero and other sections for gentle atmosphere.
+*/
 import React from 'react';
 
 const BackgroundBeams = () => (

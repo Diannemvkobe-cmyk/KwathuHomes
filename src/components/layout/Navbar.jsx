@@ -1,3 +1,16 @@
+/*
+Purpose
+- Provides the top navigation bar for quick access and identity.
+- Shows brand, simple page links, and a sign-in / dashboard button.
+
+How It Works
+- Reads user from AuthContext to decide “Get Started” vs “Dashboard”.
+- Exposes handlers for About, Contact, and Get Started navigation.
+- Adjusts visuals based on scrolled state (blurred background).
+
+Where It Fits
+- Renders at the top of the app across pages.
+*/
 import React from 'react';
 import { Home, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -6,7 +19,7 @@ const Navbar = ({ scrolled, onGetStarted, onAbout, onContact }) => {
   const { user } = useAuth();
 
   return (
-    <nav className={`fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-6xl z-50 transition-all duration-500 rounded-full border border-white/20 px-8 py-4 ${scrolled ? 'bg-white/70 backdrop-blur-2xl shadow-2xl shadow-emerald-900/10' : 'bg-white/10 backdrop-blur-md'
+    <nav className={`fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-6xl z-50 transition-all duration-500 rounded-full border border-white/20 px-8 py-4 ${scrolled ? 'bg-white/70 backdrop-blur-2xl shadow-2xl shadow-emerald-900/10 dark:bg-slate-900/70' : 'bg-white/10 backdrop-blur-md dark:bg-slate-900/20'
       }`}>
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
@@ -27,7 +40,7 @@ const Navbar = ({ scrolled, onGetStarted, onAbout, onContact }) => {
             <a
               key={item.name}
               href="#"
-              className="text-xs font-black uppercase tracking-widest text-slate-600 hover:text-emerald-600 transition-colors"
+              className="text-xs font-black uppercase tracking-widest text-slate-600 hover:text-emerald-600 transition-colors dark:text-slate-300"
               onClick={(e) => {
                 e.preventDefault();
                 item.action();
@@ -43,7 +56,7 @@ const Navbar = ({ scrolled, onGetStarted, onAbout, onContact }) => {
             <>
               <button
                 onClick={onGetStarted}
-                className="hidden sm:block text-xs font-black uppercase tracking-widest text-slate-600 hover:text-emerald-600 transition-colors"
+                className="hidden sm:block text-xs font-black uppercase tracking-widest text-slate-600 hover:text-emerald-600 transition-colors dark:text-slate-300"
               >
                 Sign In
               </button>

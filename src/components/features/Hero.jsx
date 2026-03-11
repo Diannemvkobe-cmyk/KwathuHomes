@@ -1,3 +1,16 @@
+/*
+Purpose
+- Provides the landing “Hero” area for searching properties.
+- Centers a location search input and quick category filters.
+
+How It Works
+- Receives searchQuery and activeFilter from parent, plus setters.
+- Typing updates searchQuery; clicking chips updates activeFilter.
+- Uses Framer Motion to gently animate the hero elements.
+
+Where It Fits
+- Appears at the top of the Home screen to start discovery.
+*/
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Search, MapPin } from 'lucide-react';
@@ -20,7 +33,7 @@ const Hero = ({ searchQuery, setSearchQuery, categories, activeFilter, setActive
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.8 }}
-          className="relative w-full max-w-2xl mx-auto mb-6"
+          className="relative w-full max-w-2xl mx-auto mt-4 mb-6"
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[3rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>

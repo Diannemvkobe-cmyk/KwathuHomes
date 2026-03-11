@@ -1,3 +1,17 @@
+/*
+Purpose
+- Introduces KwathuHomes’ mission, community, founder, and values.
+- Builds trust through clear messaging and calm visual design.
+
+How It Works
+- Uses Framer Motion to reveal sections smoothly.
+- Presents Mission, Community, Founder profile, and Core Values as cards.
+- Provides a CTA that returns users to browse properties.
+
+Where It Fits
+- Reached from the main app navigation as the “About” page.
+- Accepts onBack for simple navigation back to the home view.
+*/
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -7,8 +21,6 @@ import {
   ArrowLeft,
   Sparkles,
   CheckCircle2,
-  Instagram,
-  Twitter,
   Linkedin
 } from 'lucide-react';
 
@@ -29,7 +41,7 @@ const About = ({ onBack }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans antialiased text-slate-900 dark:text-slate-100 pb-20">
       {/* Navigation */}
       <nav className="fixed top-6 left-6 z-50">
         <button
@@ -98,10 +110,10 @@ const About = ({ onBack }) => {
         >
           <div className="flex flex-col lg:flex-row">
             {/* Image Section */}
-            <div className="lg:w-1/2 min-h-[500px] bg-slate-200 relative group overflow-hidden">
+            <div className="lg:w-1/2 min-h-[500px] bg-slate-200 dark:bg-slate-800 relative group overflow-hidden">
               <img
-                src="/dianne-about-pic.jpeg"
-                alt="Dianne Mvkobe"
+                src="/new.png"
+                alt="Diana Mukobe"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
               {/* Overlay on hover for subtle effect */}
@@ -114,12 +126,12 @@ const About = ({ onBack }) => {
             <div className="lg:w-1/2 p-12 lg:p-20 flex flex-col justify-center">
               <div className="text-emerald-600 font-black uppercase tracking-[0.3em] text-[10px] mb-4">The Creator & Owner</div>
               <h2 className="text-5xl lg:text-7xl font-black text-slate-900 tracking-tighter uppercase mb-6 leading-none">
-                DIANNE <br />
-                <span className="text-slate-400">MVKOBE</span>
+                DIANA<br />
+                <span className="text-slate-400">MUKOBE</span>
               </h2>
               <div className="w-20 h-1.5 bg-emerald-600 mb-10 rounded-full"></div>
               <p className="text-lg text-slate-500 font-medium leading-relaxed mb-8">
-                As the visionary behind KwathuHomes, Dianne Mvkobe is dedicated to transforming the real estate landscape in Zambia. With a passion for design and technology, she has built this platform to bridge the gap between dream homes and their future owners.
+                As the visionary behind KwathuHomes, DianaMukobe is dedicated to transforming the real estate landscape in Zambia. With a passion for design and technology, she has built this platform to bridge the gap between dream homes and their future owners.
               </p>
 
               <div className="flex flex-wrap gap-4 mb-10">
@@ -136,15 +148,15 @@ const About = ({ onBack }) => {
               </div>
 
               <div className="flex items-center gap-6">
-                <button className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white hover:bg-emerald-600 hover:scale-110 transition-all shadow-xl shadow-slate-900/10">
+                <a
+                  href="https://www.linkedin.com/in/diana-mukobe-?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Visit Diana Mukobe on LinkedIn"
+                  className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white hover:bg-emerald-600 hover:scale-110 transition-all shadow-xl shadow-slate-900/10"
+                >
                   <Linkedin className="w-5 h-5" />
-                </button>
-                <button className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white hover:bg-emerald-600 hover:scale-110 transition-all shadow-xl shadow-slate-900/10">
-                  <Instagram className="w-5 h-5" />
-                </button>
-                <button className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white hover:bg-emerald-600 hover:scale-110 transition-all shadow-xl shadow-slate-900/10">
-                  <Twitter className="w-5 h-5" />
-                </button>
+                </a>
               </div>
             </div>
           </div>

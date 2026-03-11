@@ -1,3 +1,16 @@
+/*
+Purpose
+- Provides lightweight authentication state (user and token) to the app.
+- Exposes login and logout helpers for components to use.
+
+How It Works
+- Reads token/user from localStorage on load to persist sessions.
+- login() stores user and token in state + localStorage.
+- logout() clears state, storage, and redirects to home.
+
+Where It Fits
+- Wraps the App in main.jsx so children can use useAuth().
+*/
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();

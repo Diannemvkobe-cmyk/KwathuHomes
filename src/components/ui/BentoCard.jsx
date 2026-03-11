@@ -1,3 +1,15 @@
+/*
+Purpose
+- Displays a small “bento” style card with an icon, title, and description.
+- Used for simple highlight blocks in the UI.
+
+How It Works
+- Accepts an icon component, title, description, and optional className.
+- Adds a hover lift and color transition for a gentle interactive feel.
+
+Where It Fits
+- Used on landing sections and dashboards to present key bits of info.
+*/
 import React from 'react';
 import { motion } from 'framer-motion';
 

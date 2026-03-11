@@ -1,9 +1,23 @@
-import React from 'react';
+/*
+Purpose
+- Displays a single property preview card with image, price, location, and stats.
+- Lets users save a property or open details, in a compact card layout.
+
+How It Works
+- Receives prop data, index for animation delay, and onClick/onSave handlers.
+- Uses Framer Motion to animate cards as they scroll into view.
+- Buttons stop event propagation to avoid accidental card clicks.
+
+Where It Fits
+- Used in property lists or grids across the app.
+*/
+import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, BedDouble, Bath, Maximize, ArrowUpRight, Heart } from 'lucide-react';
 
-const PropertyCard = ({ prop, idx, onClick, onSave }) => (
+const PropertyCard = forwardRef(({ prop, idx, onClick, onSave }, ref) => (
   <motion.div
+    ref={ref}
     initial={{ opacity: 0, y: 30 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
@@ -61,6 +75,8 @@ const PropertyCard = ({ prop, idx, onClick, onSave }) => (
       </div>
     </div>
   </motion.div>
-);
+));
+
+PropertyCard.displayName = 'PropertyCard';
 
 export default PropertyCard;

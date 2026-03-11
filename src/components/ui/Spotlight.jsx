@@ -1,3 +1,15 @@
+/*
+Purpose
+- Renders a large, soft spotlight glow behind content.
+- Adds depth without overpowering typography or controls.
+
+How It Works
+- Pure presentational; one animated, blurred, circular element.
+- No props or state required.
+
+Where It Fits
+- Used in hero/landing areas to subtly highlight the center.
+*/
 import React from 'react';
 
 const Spotlight = () => (
