@@ -14,9 +14,10 @@ Where It Fits
 */
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, LayoutDashboard, Users, FileText, LogOut, ShieldAlert, Menu, X } from 'lucide-react';
+import { Home, LayoutDashboard, Users, FileText, LogOut, ShieldAlert, Menu, X, Flag, UserCheck, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Auth from './Auth';
+import { apiUrl } from '../../utils/api';
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
@@ -46,6 +47,31 @@ const PanelShell = ({ kicker, title, subtitle, children }) => (
   </div>
 );
 
+const getUserId = (record) => record?._id || record?.id;
+
+const getApprovalStatus = (record) => String(
+  record?.approvalStatus
+  || record?.status
+  || (record?.isApproved === true ? 'approved' : record?.isApproved === false ? 'pending' : '')
+).toLowerCase();
+
+const isPendingApproval = (record) => getApprovalStatus(record) === 'pending';
+
+const StatusBadge = ({ status }) => {
+  const normalized = String(status || 'approved').toLowerCase();
+  const styles = normalized === 'approved'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+    : normalized === 'rejected'
+      ? 'bg-red-50 text-red-700 border-red-100'
+      : 'bg-amber-50 text-amber-700 border-amber-100';
+
+  return (
+    <span className={`inline-flex px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${styles}`}>
+      {normalized}
+    </span>
+  );
+};
+
 const AdminDashboard = ({ onExit }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('Overview');
@@ -55,6 +81,7 @@ const AdminDashboard = ({ onExit }) => {
   const [overview, setOverview] = useState(null);
   const [traffic, setTraffic] = useState([]);
   const [usersData, setUsersData] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'Buyer' });
   const [logs, setLogs] = useState([]);
   const [userLookup, setUserLookup] = useState({});
@@ -62,12 +89,44 @@ const AdminDashboard = ({ onExit }) => {
   const [logsQuery, setLogsQuery] = useState('');
   const [logsPage, setLogsPage] = useState(1);
   const [logsPageSize] = useState(20);
+  const [reports, setReports] = useState([]);
 
   const isAdmin = useMemo(() => {
     if (!user) return false;
     const role = String(user.role || '').toLowerCase();
     return role === 'admin' || role === 'administrator' || role === 'superadmin';
   }, [user]);
+
+  const loadUsers = async () => {
+    const response = await fetch(apiUrl('/admin/users'));
+    if (!response.ok) throw new Error('Failed to load users');
+    const data = await response.json();
+    const list = Array.isArray(data) ? data : [];
+    setUsersData(list);
+    return list;
+  };
+
+  const loadPendingUsers = async () => {
+    const candidates = ['/admin/approvals', '/admin/pending-users'];
+
+    for (const path of candidates) {
+      try {
+        const response = await fetch(apiUrl(path));
+        if (!response.ok) continue;
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : data?.users;
+        if (Array.isArray(list)) {
+          setPendingUsers(list.filter(isPendingApproval));
+          return;
+        }
+      } catch {
+        // Fall through to the users endpoint.
+      }
+    }
+
+    const allUsers = usersData.length > 0 ? usersData : await loadUsers();
+    setPendingUsers(allUsers.filter(isPendingApproval));
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -76,8 +135,8 @@ const AdminDashboard = ({ onExit }) => {
       try {
         if (activeTab === 'Overview') {
           const [o, t] = await Promise.all([
-            fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/overview` : '/api/admin/overview'),
-            fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/traffic` : '/api/admin/traffic')
+            fetch(apiUrl('/admin/overview')),
+            fetch(apiUrl('/admin/traffic'))
           ]);
           if (!o.ok) throw new Error('Failed to load overview');
           if (!t.ok) throw new Error('Failed to load traffic');
@@ -86,12 +145,16 @@ const AdminDashboard = ({ onExit }) => {
           setOverview(odata);
           setTraffic(Array.isArray(tdata?.series) ? tdata.series : []);
         } else if (activeTab === 'Users') {
-          const u = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/users` : '/api/admin/users');
-          if (!u.ok) throw new Error('Failed to load users');
-          const udata = await u.json();
-          setUsersData(Array.isArray(udata) ? udata : []);
+          await loadUsers();
+        } else if (activeTab === 'Approvals') {
+          await loadPendingUsers();
+        } else if (activeTab === 'Reports') {
+          const r = await fetch(apiUrl('/admin/reports'));
+          if (!r.ok) throw new Error('Failed to load reports');
+          const rdata = await r.json();
+          setReports(Array.isArray(rdata) ? rdata : []);
         } else if (activeTab === 'Logs') {
-          const l = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/logs` : '/api/admin/logs');
+          const l = await fetch(apiUrl('/admin/logs'));
           if (!l.ok) throw new Error('Failed to load logs');
           const ldata = await l.json();
           setLogs(Array.isArray(ldata) ? ldata : []);
@@ -105,7 +168,7 @@ const AdminDashboard = ({ onExit }) => {
           const current = {};
           for (const id of ids) {
             try {
-              const r = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/users/${id}` : `/api/admin/users/${id}`);
+              const r = await fetch(apiUrl(`/admin/users/${id}`));
               if (r.ok) {
                 const u = await r.json();
                 current[id] = u;
@@ -251,7 +314,7 @@ const AdminDashboard = ({ onExit }) => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/users` : '/api/admin/users', {
+      const res = await fetch(apiUrl('/admin/users'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createForm)
@@ -261,9 +324,7 @@ const AdminDashboard = ({ onExit }) => {
         throw new Error(txt || 'Failed to create user');
       }
       setCreateForm({ name: '', email: '', password: '', role: 'Buyer' });
-      const u = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/users` : '/api/admin/users');
-      const udata = await u.json();
-      setUsersData(Array.isArray(udata) ? udata : []);
+      await loadUsers();
     } catch (e) {
       setError(e.message || 'Create failed');
     } finally {
@@ -271,15 +332,118 @@ const AdminDashboard = ({ onExit }) => {
     }
   };
 
-  const handleDeleteUser = async (id) => {
+  const handleDeleteUser = async (id, reportId = null) => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/admin/users/${id}` : `/api/admin/users/${id}`, { method: 'DELETE' });
+      const res = await fetch(apiUrl(`/admin/users/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete user');
-      setUsersData((prev) => prev.filter((u) => u.id !== id));
+      setUsersData((prev) => prev.filter((u) => getUserId(u) !== id));
+      setPendingUsers((prev) => prev.filter((u) => getUserId(u) !== id));
+      if (reportId) {
+        await handleReportAction(reportId, { status: 'Reviewed', adminAction: 'Seller account deleted by admin' });
+      } else {
+        setReports((prev) => prev.map((report) => (
+          report.seller?.id === id
+            ? { ...report, status: 'Reviewed', adminAction: 'Seller account deleted by admin' }
+            : report
+        )));
+      }
     } catch (e) {
       setError(e.message || 'Delete failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprovalAction = async (targetUser, action) => {
+    const userId = getUserId(targetUser);
+    if (!userId) {
+      setError('Unable to resolve the selected user.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    const payload = {
+      action,
+      status: action === 'approve' ? 'approved' : 'rejected',
+      approvalStatus: action === 'approve' ? 'approved' : 'rejected',
+      isApproved: action === 'approve'
+    };
+
+    const attempts = [
+      { path: `/admin/approvals/${userId}`, method: 'PATCH', body: { action } },
+      { path: `/admin/users/${userId}/approval`, method: 'PATCH', body: payload },
+      { path: `/admin/users/${userId}`, method: 'PATCH', body: payload }
+    ];
+
+    try {
+      let handled = false;
+
+      for (const attempt of attempts) {
+        try {
+          const response = await fetch(apiUrl(attempt.path), {
+            method: attempt.method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(attempt.body)
+          });
+
+          if (!response.ok) continue;
+          handled = true;
+          break;
+        } catch {
+          // Try the next supported backend shape.
+        }
+      }
+
+      if (!handled) {
+        throw new Error(`Failed to ${action} user`);
+      }
+
+      setPendingUsers((prev) => prev.filter((entry) => getUserId(entry) !== userId));
+      setUsersData((prev) => prev.map((entry) => (
+        getUserId(entry) === userId
+          ? {
+            ...entry,
+            approvalStatus: payload.approvalStatus,
+            status: payload.status,
+            isApproved: payload.isApproved
+          }
+          : entry
+      )));
+
+      if (activeTab === 'Approvals') {
+        await loadPendingUsers();
+      }
+    } catch (e) {
+      setError(e.message || `Failed to ${action} user`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReportAction = async (reportId, updates) => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl(`/admin/reports/${reportId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to update report');
+      }
+      const updated = await res.json();
+      setReports((prev) => prev.map((report) => (
+        report.id === reportId
+          ? { ...report, ...updated }
+          : report
+      )));
+    } catch (e) {
+      setError(e.message || 'Failed to update report');
     } finally {
       setLoading(false);
     }
@@ -370,6 +534,8 @@ const AdminDashboard = ({ onExit }) => {
         <nav className="flex-1 space-y-2">
           <SidebarItem icon={LayoutDashboard} label="Overview" active={activeTab === 'Overview'} onClick={() => { setActiveTab('Overview'); setMobileSidebarOpen(false); }} />
           <SidebarItem icon={Users} label="Users" active={activeTab === 'Users'} onClick={() => { setActiveTab('Users'); setMobileSidebarOpen(false); }} />
+          <SidebarItem icon={UserCheck} label="Approvals" active={activeTab === 'Approvals'} onClick={() => { setActiveTab('Approvals'); setMobileSidebarOpen(false); }} />
+          <SidebarItem icon={Flag} label="Reports" active={activeTab === 'Reports'} onClick={() => { setActiveTab('Reports'); setMobileSidebarOpen(false); }} />
           <SidebarItem icon={FileText} label="System Logs" active={activeTab === 'Logs'} onClick={() => { setActiveTab('Logs'); setMobileSidebarOpen(false); }} />
         </nav>
 
@@ -506,14 +672,165 @@ const AdminDashboard = ({ onExit }) => {
                         <div className="px-6 py-6 text-slate-500">No users</div>
                       ) : (
                         usersData.map(u => (
-                          <div key={u.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                          <div key={getUserId(u)} className="px-6 py-4 flex items-center justify-between gap-4">
                             <div>
                               <p className="font-bold text-slate-900">{u.name}</p>
                               <p className="text-xs text-slate-500">{u.email}</p>
                             </div>
                             <div className="flex items-center gap-3">
+                              <StatusBadge status={getApprovalStatus(u) || 'approved'} />
                               <span className="text-xs font-black uppercase tracking-widest text-slate-500">{u.role}</span>
-                              <button onClick={() => handleDeleteUser(u.id)} className="px-3 py-2 rounded-xl bg-red-50 text-red-600 border border-red-100 text-xs font-black uppercase tracking-widest">Delete</button>
+                              <button onClick={() => handleDeleteUser(getUserId(u))} className="px-3 py-2 rounded-xl bg-red-50 text-red-600 border border-red-100 text-xs font-black uppercase tracking-widest">Delete</button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </PanelShell>
+              )}
+
+              {activeTab === 'Approvals' && (
+                <PanelShell
+                  kicker="Registration"
+                  title="Approval Queue"
+                  subtitle="Only newly registered accounts waiting for admin approval appear here."
+                >
+                  <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+                      Pending Registrations
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {loading && pendingUsers.length === 0 ? (
+                        <div className="px-6 py-6 text-slate-500">Loading…</div>
+                      ) : pendingUsers.length === 0 ? (
+                        <div className="px-6 py-6 text-slate-500">No registrations are waiting for review.</div>
+                      ) : (
+                        pendingUsers.map((entry) => (
+                          <div key={getUserId(entry)} className="px-6 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <p className="font-bold text-slate-900">{entry.name}</p>
+                                <StatusBadge status={getApprovalStatus(entry) || 'pending'} />
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">{entry.role}</span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">{entry.email}</p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                Registered {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'recently'}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => handleApprovalAction(entry, 'approve')}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleApprovalAction(entry, 'reject')}
+                                className="px-4 py-2 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </PanelShell>
+              )}
+
+              {activeTab === 'Reports' && (
+                <PanelShell
+                  kicker="Moderation"
+                  title="Seller Reports"
+                  subtitle=""
+                >
+                  <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+                      Reported Sellers
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {loading && reports.length === 0 ? (
+                        <div className="px-6 py-6 text-slate-500">Loading…</div>
+                      ) : reports.length === 0 ? (
+                        <div className="px-6 py-6 text-slate-500">No reports</div>
+                      ) : (
+                        reports.map((report) => (
+                          <div key={report.id} className="px-6 py-6 space-y-5">
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="inline-flex px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest">
+                                    {report.status}
+                                  </span>
+                                  {report.adminAction ? (
+                                    <span className="text-xs font-semibold text-slate-500">{report.adminAction}</span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-3 text-sm font-black uppercase tracking-tight text-slate-900">
+                                  {report.seller?.name || 'Unknown seller'}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  Reported on {report.createdAt ? new Date(report.createdAt).toLocaleString() : 'Unknown time'}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => handleReportAction(report.id, { status: 'Reviewed', adminAction: 'Reviewed by admin' })}
+                                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest"
+                                >
+                                  Mark Reviewed
+                                </button>
+                                <button
+                                  onClick={() => handleReportAction(report.id, { status: 'Dismissed', adminAction: 'Dismissed by admin' })}
+                                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest"
+                                >
+                                  Dismiss
+                                </button>
+                                {report.seller?.id ? (
+                                  <button
+                                    onClick={() => handleDeleteUser(report.seller.id, report.id)}
+                                    className="px-4 py-2 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest"
+                                  >
+                                    Delete Seller
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="grid lg:grid-cols-2 gap-4">
+                              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Owner Info</p>
+                                <div className="space-y-2 text-sm text-slate-700">
+                                  <p><span className="font-black text-slate-900">Name:</span> {report.seller?.name || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">Phone:</span> {report.seller?.phone || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">WhatsApp:</span> {report.seller?.whatsapp || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">Email:</span> {report.seller?.email || 'Not available'}</p>
+                                </div>
+                              </div>
+
+                              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Flagged Property</p>
+                                <div className="space-y-2 text-sm text-slate-700">
+                                  <p><span className="font-black text-slate-900">Property:</span> {report.property?.title || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">Location:</span> {report.property?.location || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">Price:</span> {report.property?.price || 'Not available'}</p>
+                                  <p><span className="font-black text-slate-900">Flagged At:</span> {report.createdAt ? new Date(report.createdAt).toLocaleString() : 'Unknown time'}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-100 p-4">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Reporter</p>
+                              <p className="text-sm text-slate-700">
+                                {report.reporter?.name || 'Anonymous visitor'}
+                                {report.reporter?.role ? ` (${report.reporter.role})` : ''}
+                                {report.reporter?.email ? ` • ${report.reporter.email}` : ''}
+                              </p>
                             </div>
                           </div>
                         ))

@@ -15,7 +15,7 @@ import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, BedDouble, Bath, Maximize, ArrowUpRight, Heart } from 'lucide-react';
 
-const PropertyCard = forwardRef(({ prop, idx, onClick, onSave }, ref) => (
+const PropertyCard = forwardRef(({ prop, idx, onClick, onSave, isSaved = false, isSaving = false }, ref) => (
   <motion.div
     ref={ref}
     initial={{ opacity: 0, y: 30 }}
@@ -34,10 +34,17 @@ const PropertyCard = forwardRef(({ prop, idx, onClick, onSave }, ref) => (
           </div>
           <div className="flex gap-2">
             <button
-              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 pointer-events-auto hover:bg-white hover:text-emerald-600 transition-all"
+              type="button"
+              disabled={isSaving}
+              aria-label={isSaved ? 'Remove saved property' : 'Save property'}
+              className={`w-10 h-10 backdrop-blur-md rounded-full flex items-center justify-center border pointer-events-auto transition-all ${
+                isSaved
+                  ? 'bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600'
+                  : 'bg-white/20 text-white border-white/20 hover:bg-white hover:text-emerald-600'
+              } ${isSaving ? 'opacity-70 cursor-wait' : ''}`}
               onClick={(e) => { e.stopPropagation(); onSave && onSave(); }}
             >
-              <Heart className="w-5 h-5" />
+              <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
             </button>
             <button
               className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 pointer-events-auto hover:bg-white hover:text-emerald-600 transition-all"

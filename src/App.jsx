@@ -41,16 +41,8 @@ import { useAuth } from './context/AuthContext';
 import { withBuyerPhone } from './utils/engagement';
 import { apiUrl } from './utils/api';
 
-const getBuyerStorageKey = (user) => {
-  if (!user) return null;
-  if (user._id) return `savedProperties:${user._id}`;
-  if (user.id) return `savedProperties:${user.id}`;
-  if (user.email) return `savedProperties:${String(user.email).toLowerCase()}`;
-  return null;
-};
-
 const App = () => {
-  const { user, logout: authLogout } = useAuth();
+  const { user, token, logout: authLogout } = useAuth();
   const enrichedUser = useMemo(() => withBuyerPhone(user), [user]);
   const [scrolled, setScrolled] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
@@ -61,6 +53,7 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [savedProperties, setSavedProperties] = useState([]);
+  const [savingPropertyIds, setSavingPropertyIds] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -132,30 +125,48 @@ const App = () => {
     };
   }, []);
 
-  // Load saved properties for the logged-in buyer from localStorage
   useEffect(() => {
     if (!enrichedUser || enrichedUser.role !== 'Buyer') {
       setSavedProperties([]);
       return;
     }
-    const key = getBuyerStorageKey(enrichedUser);
-    if (!key || typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) {
-        setSavedProperties([]);
-        return;
-      }
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        setSavedProperties(parsed);
-      } else {
-        setSavedProperties([]);
-      }
-    } catch {
+    if (!token) {
       setSavedProperties([]);
+      return;
     }
-  }, [enrichedUser]);
+
+    let cancelled = false;
+
+    const fetchSavedProperties = async () => {
+      try {
+        const response = await fetch(apiUrl('/auth/saved-properties'), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load saved properties: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!cancelled) {
+          setSavedProperties(Array.isArray(data) ? data.filter((property) => property?._id) : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error loading saved properties:', err);
+          setSavedProperties([]);
+        }
+      }
+    };
+
+    fetchSavedProperties();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enrichedUser, token]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -176,6 +187,13 @@ const App = () => {
     });
   }, [activeFilter, searchQuery, properties]);
 
+  const savedPropertyIds = useMemo(
+    () => new Set(savedProperties.map((property) => property?._id).filter(Boolean)),
+    [savedProperties]
+  );
+
+  const savingPropertyIdSet = useMemo(() => new Set(savingPropertyIds), [savingPropertyIds]);
+
   // ── Auth Handling ──────────────────────────────────────────────────────────
   const handleAuthSuccess = (userData) => {
     if (userData.role === 'Seller') {
@@ -193,38 +211,46 @@ const App = () => {
     }
   };
 
-  const handleSaveProperty = (prop) => {
+  const handleToggleSavedProperty = async (prop) => {
     if (!enrichedUser) {
       setView('auth');
       return;
     }
 
-    if (enrichedUser.role === 'Buyer' && prop) {
-      const key = getBuyerStorageKey(enrichedUser);
-      setSavedProperties((prev) => {
-        if (prev.some((p) => p._id === prop._id)) {
-          return prev;
-        }
-        const next = [...prev, prop];
-        if (key && typeof window !== 'undefined') {
-          localStorage.setItem(key, JSON.stringify(next));
-        }
-        return next;
+    if (enrichedUser.role !== 'Buyer' || !prop?._id || !token) {
+      return;
+    }
+
+    const propertyId = prop._id;
+    const isSaved = savedPropertyIds.has(propertyId);
+
+    setSavingPropertyIds((prev) => (prev.includes(propertyId) ? prev : [...prev, propertyId]));
+
+    try {
+      const response = await fetch(apiUrl(`/auth/saved-properties/${propertyId}`), {
+        method: isSaved ? 'DELETE' : 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
-      setView('buyer-dashboard');
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isSaved ? 'remove' : 'save'} property`);
+      }
+
+      const data = await response.json();
+      setSavedProperties(Array.isArray(data) ? data.filter((property) => property?._id) : []);
+    } catch (err) {
+      console.error('Error updating saved property:', err);
+    } finally {
+      setSavingPropertyIds((prev) => prev.filter((id) => id !== propertyId));
     }
   };
 
-  const handleRemoveSavedProperty = (propertyId) => {
-    if (!enrichedUser || enrichedUser.role !== 'Buyer') return;
-    const key = getBuyerStorageKey(enrichedUser);
-    setSavedProperties((prev) => {
-      const next = prev.filter((p) => p?._id !== propertyId);
-      if (key && typeof window !== 'undefined') {
-        localStorage.setItem(key, JSON.stringify(next));
-      }
-      return next;
-    });
+  const handleRemoveSavedProperty = async (propertyId) => {
+    const property = savedProperties.find((item) => item?._id === propertyId);
+    if (!property) return;
+    await handleToggleSavedProperty(property);
   };
 
   // ── View Redirection ───────────────────────────────────────────────────────
@@ -258,7 +284,11 @@ const App = () => {
           onRequireAuth={() => setView('auth')}
           onBack={() => setSelectedProperty(null)}
           onSelectProperty={(p) => setSelectedProperty(p)}
-          onSave={() => handleSaveProperty(selectedProperty)}
+          savedPropertyIds={savedPropertyIds}
+          savingPropertyIds={savingPropertyIdSet}
+          isSaved={savedPropertyIds.has(selectedProperty._id)}
+          isSaving={savingPropertyIdSet.has(selectedProperty._id)}
+          onSave={handleToggleSavedProperty}
         />
       </AnimatePresence>
     );
@@ -393,7 +423,9 @@ const App = () => {
                       prop={prop}
                       idx={idx}
                       onClick={() => setSelectedProperty(prop)}
-                      onSave={() => handleSaveProperty(prop)}
+                      isSaved={savedPropertyIds.has(prop._id)}
+                      isSaving={savingPropertyIdSet.has(prop._id)}
+                      onSave={() => handleToggleSavedProperty(prop)}
                     />
                   ))}
                 </AnimatePresence>

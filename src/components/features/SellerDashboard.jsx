@@ -206,9 +206,8 @@ const SellerEventTable = ({ title, events }) => (
               <tr key={event.id} className="hover:bg-slate-50/70">
                 <td className="px-8 py-5">
                   <p className="text-sm font-black text-slate-900">{event.buyerName || 'Buyer'}</p>
-                  <p className="text-xs text-slate-400">{event.buyerEmail || 'No email'}</p>
                 </td>
-                <td className="px-8 py-5 text-sm font-semibold text-slate-700">{event.buyerPhone || 'No number added'}</td>
+                <td className="px-8 py-5 text-sm font-semibold text-slate-700">{event.buyerEmail || 'No email'}</td>
                 <td className="px-8 py-5 text-sm font-semibold text-slate-700">{event.propertyTitle}</td>
                 <td className="px-8 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">{formatDateTime(event.createdAt)}</td>
               </tr>
@@ -663,6 +662,15 @@ const ProfileView = ({ user, token, listingsCount, profileData, onChangeProfile,
             />
           </div>
           <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block px-4">WhatsApp Number</label>
+            <input
+              type="text"
+              value={profileData.whatsapp}
+              onChange={(e) => onChangeProfile('whatsapp', e.target.value)}
+              className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 text-sm font-black text-slate-800 outline-none focus:border-emerald-600 focus:bg-white transition-all shadow-sm"
+            />
+          </div>
+          <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block px-4">Real Estate Agency</label>
             <input
               type="text"
@@ -687,6 +695,7 @@ const ProfileView = ({ user, token, listingsCount, profileData, onChangeProfile,
                   name: profileData.name,
                   email: profileData.email,
                   phone: profileData.phone,
+                  whatsapp: profileData.whatsapp,
                   profilePic: profilePic
                 })
               });
@@ -719,6 +728,7 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '+260 XX XXX XXXX',
+    whatsapp: user?.whatsapp || '+260 XX XXX XXXX',
     agency: user?.agency || 'Zambian Estates'
   });
   const [listings, setListings] = useState([]);

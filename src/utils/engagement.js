@@ -74,7 +74,6 @@ export const recordEngagementEvent = ({ type, property, buyer }) => {
     buyerId,
     buyerName: buyer?.name || 'Guest',
     buyerEmail: buyer?.email || '',
-    buyerPhone: buyer?.phone || '',
     createdAt: new Date().toISOString(),
   };
 

@@ -48,7 +48,9 @@ import {
   recordEngagementEvent,
   withBuyerPhone,
 } from '../../utils/engagement';
+import { contactOwnerViaWhatsapp } from '../../utils/whatsapp';
 import { useAuth } from '../../context/AuthContext';
+import { apiUrl } from '../../utils/api';
 
 const INTERIOR_IMAGES = {
   House: [
@@ -145,7 +147,19 @@ const ImageSlider = ({ images }) => {
   );
 };
 
-const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onSelectProperty, onSave }) => {
+const PropertyDetail = ({
+  property,
+  properties,
+  user,
+  onRequireAuth,
+  onBack,
+  onSelectProperty,
+  onSave,
+  savedPropertyIds,
+  savingPropertyIds,
+  isSaved = false,
+  isSaving = false,
+}) => {
   const { token } = useAuth();
   const buyerUser = withBuyerPhone(user);
   const interiors = INTERIOR_IMAGES[property.type] || [];
@@ -184,6 +198,12 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
     property.sellerEmail ||
     property.contactEmail ||
     '';
+  const ownerWhatsapp =
+    property.ownerWhatsapp ||
+    property.owner?.whatsapp ||
+    property.sellerWhatsapp ||
+    property.contactWhatsapp ||
+    '';
   const ownerProfilePic =
     property.ownerProfilePic ||
     property.owner?.profilePic ||
@@ -195,6 +215,21 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
   const buyerProfile = getBuyerProfile(buyerUser);
   const buyerPhone = buyerUser?.phone || buyerProfile?.phone || '';
   const [resolvedOwnerPhone, setResolvedOwnerPhone] = useState(ownerPhone);
+  const [resolvedOwnerWhatsapp, setResolvedOwnerWhatsapp] = useState('');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportingSeller, setReportingSeller] = useState(false);
+  const handleSaveClick = () => {
+    if (!buyerUser) {
+      onRequireAuth && onRequireAuth();
+      return;
+    }
+
+    if (buyerUser.role !== 'Buyer') {
+      return;
+    }
+
+    onSave && onSave(property);
+  };
 
   const showToast = (message, tone = 'success') => {
     setToast({ message, tone });
@@ -225,11 +260,6 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
   }, [isBuyer, buyerUser, viewTracked, property, buyerPhone]);
 
   useEffect(() => {
-    if (!isBuyer || buyerPhone) return;
-    showToast('Please add your contact number in Buyer Profile.', 'warning');
-  }, [isBuyer, buyerPhone]);
-
-  useEffect(() => {
     setResolvedOwnerPhone(ownerPhone);
     if (ownerPhone) return;
     const id = getOwnerIdValue(property);
@@ -238,6 +268,7 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
     const run = async () => {
       const base = import.meta.env.VITE_API_BASE_URL;
       const endpoints = [
+        base ? `${base}/auth/${id}/contact` : `/api/auth/${id}/contact`,
         base ? `${base}/users/${id}` : `/api/users/${id}`,
         base ? `${base}/admin/users/${id}` : `/api/admin/users/${id}`,
       ];
@@ -268,50 +299,135 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
     };
   }, [property._id, ownerPhone, token]);
 
+  useEffect(() => {
+    setResolvedOwnerWhatsapp(ownerWhatsapp);
+  }, [ownerWhatsapp, property._id]);
+
+  useEffect(() => {
+    const id = getOwnerIdValue(property);
+    if (!id) return;
+    let cancelled = false;
+    const run = async () => {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      const endpoints = [
+        base ? `${base}/auth/${id}/contact` : `/api/auth/${id}/contact`,
+        base ? `${base}/users/${id}` : `/api/users/${id}`,
+        base ? `${base}/admin/users/${id}` : `/api/admin/users/${id}`,
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const r = await fetch(url, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          console.log('[owner-whatsapp] fetch attempt', { url, status: r.status });
+          if (!r.ok) continue;
+          const data = await r.json();
+          console.log('[owner-whatsapp] payload', data);
+          const whatsapp = data?.whatsapp || '';
+          if (!cancelled && whatsapp) {
+            setResolvedOwnerWhatsapp(whatsapp);
+          }
+          break;
+        } catch {
+          console.log('[owner-whatsapp] fetch failed', { url });
+          // keep trying the next endpoint
+        }
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [property._id, token]);
+
   const handleContactOwner = () => {
-    if (!buyerUser) {
-      onRequireAuth?.();
+    // Get the WhatsApp number - always fetch fresh from owner's profile
+    const whatsappNumber = resolvedOwnerWhatsapp || resolvedOwnerPhone || ownerPhone;
+    
+    if (!whatsappNumber) {
+      showToast('Owner WhatsApp number not available. Please try again later.', 'warning');
       return;
     }
 
-    if (!isBuyer) {
-      showToast('Only buyers can contact owners from this page.', 'warning');
-      return;
+    // Record the engagement event (inquiry)
+    if (buyerUser && isBuyer) {
+      recordEngagementEvent({
+        type: 'inquiry',
+        property,
+        buyer: {
+          ...buyerUser,
+          phone: buyerPhone,
+        },
+      });
+
+      // Send notifications to seller and buyer
+      const sellerId = getOwnerIdValue(property);
+      if (sellerId) {
+        addNotification(sellerId, {
+          title: 'New inquiry received',
+          message: `${buyerUser.name || 'A buyer'} contacted you about ${property.title}.`,
+          type: 'inquiry',
+        });
+      }
+
+      const buyerId = getUserIdValue(buyerUser);
+      if (buyerId) {
+        addNotification(buyerId, {
+          title: 'Opening WhatsApp',
+          message: `Connecting you with ${ownerName} about ${property.title}.`,
+          type: 'system',
+        });
+      }
     }
 
-    if (!buyerPhone) {
-      showToast('Add your phone number in Buyer Profile before contacting owner.', 'warning');
-      return;
-    }
-
-    recordEngagementEvent({
-      type: 'inquiry',
-      property,
-      buyer: {
-        ...buyerUser,
-        phone: buyerPhone,
-      },
+    // Open WhatsApp with pre-filled message
+    const success = contactOwnerViaWhatsapp(whatsappNumber, {
+      title: property.title,
+      price: property.price,
+      type: property.type,
+      location: property.location,
     });
 
-    const sellerId = getOwnerIdValue(property);
-    if (sellerId) {
-      addNotification(sellerId, {
-        title: 'New inquiry received',
-        message: `${buyerUser.name || 'A buyer'} contacted you about ${property.title}.`,
-        type: 'inquiry',
-      });
+    if (success) {
+      showToast('Opening WhatsApp...');
+    } else {
+      showToast('Unable to open WhatsApp. Please check your phone number.', 'warning');
     }
+  };
 
-    const buyerId = getUserIdValue(buyerUser);
-    if (buyerId) {
-      addNotification(buyerId, {
-        title: 'Owner has been notified',
-        message: `Your interest in ${property.title} was sent successfully.`,
-        type: 'system',
+  const handleReportSeller = async () => {
+    setReportingSeller(true);
+    try {
+      const reporter = buyerUser ? {
+        id: buyerUser.id || buyerUser._id || null,
+        name: buyerUser.name || '',
+        email: buyerUser.email || '',
+        role: buyerUser.role || 'Buyer',
+      } : {
+        role: 'Guest',
+      };
+
+      const response = await fetch(apiUrl(`/properties/${property._id}/report`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reporter }),
       });
-    }
 
-    showToast('Owner has been notified.');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to report seller');
+      }
+
+      setReportModalOpen(false);
+      showToast('The admin has been notified.');
+    } catch (error) {
+      showToast(error.message || 'Failed to report seller.', 'warning');
+    } finally {
+      setReportingSeller(false);
+    }
   };
 
   return (
@@ -322,6 +438,35 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
       transition={{ duration: 0.4 }}
       className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900"
     >
+      {reportModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/45 backdrop-blur-sm flex items-center justify-center px-6">
+          <div className="w-full max-w-md rounded-[2rem] bg-white border border-slate-100 shadow-2xl p-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500 mb-3">Report Seller</p>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Are you sure?</h2>
+            <p className="mt-3 text-sm text-slate-600">
+              This will flag <span className="font-black text-slate-900">{ownerName}</span> for admin review based on this property.
+            </p>
+            <div className="mt-8 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(false)}
+                className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-black uppercase tracking-widest text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={reportingSeller}
+                onClick={handleReportSeller}
+                className="flex-1 px-5 py-3 rounded-2xl bg-red-500 text-white font-black uppercase tracking-widest text-xs disabled:opacity-70"
+              >
+                {reportingSeller ? 'Reporting...' : 'Yes, Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div className="fixed top-6 right-6 z-[60]">
           <div
@@ -352,10 +497,17 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
 
         <div className="ml-auto flex items-center gap-3">
           <button
-            onClick={onSave}
-            className="w-10 h-10 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-600 transition-all shadow-sm"
+            type="button"
+            disabled={isSaving}
+            onClick={handleSaveClick}
+            aria-label={isSaved ? 'Remove saved property' : 'Save property'}
+            className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all shadow-sm ${
+              isSaved
+                ? 'border-red-500 bg-red-500 text-white hover:bg-red-600 hover:border-red-600'
+                : 'border-slate-200 text-slate-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-600'
+            } ${isSaving ? 'opacity-70 cursor-wait' : ''}`}
           >
-            <Heart className="w-5 h-5" />
+            <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
           </button>
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-medium border-l border-slate-200 pl-4 h-10">
             <span className="bg-emerald-50 text-emerald-700 font-black px-3 py-1 rounded-full uppercase tracking-widest text-[10px]">
@@ -389,10 +541,17 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
                   </h1>
                 </div>
                 <button
-                  onClick={onSave}
-                  className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100 shadow-inner"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleSaveClick}
+                  aria-label={isSaved ? 'Remove saved property' : 'Save property'}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shadow-inner ${
+                    isSaved
+                      ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100'
+                      : 'bg-slate-50 text-slate-300 border-transparent hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+                  } ${isSaving ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  <Heart className="w-6 h-6" />
+                  <Heart className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
                 </button>
               </div>
 
@@ -459,6 +618,12 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
                       {resolvedOwnerPhone || 'Not provided'}
                     </span>
                   </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Phone className="w-3 h-3 text-emerald-500" />
+                    <span className="text-xs font-semibold text-slate-500">
+                      WhatsApp: {resolvedOwnerWhatsapp || 'Not provided'}
+                    </span>
+                  </div>
                   {ownerEmail && (
                     <p className="text-[11px] font-semibold text-slate-400 truncate mt-1">
                       {ownerEmail}
@@ -474,6 +639,13 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
               >
                 <CalendarCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 Contact Owner
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(true)}
+                className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-black uppercase tracking-widest text-xs py-4 rounded-2xl transition-all border border-red-100"
+              >
+                Report Seller
               </button>
             </motion.div>
           </div>
@@ -492,7 +664,9 @@ const PropertyDetail = ({ property, properties, user, onRequireAuth, onBack, onS
                   prop={p}
                   idx={idx}
                   onClick={() => onSelectProperty(p)}
-                  onSave={onSave}
+                  isSaved={savedPropertyIds?.has?.(p._id)}
+                  isSaving={savingPropertyIds?.has?.(p._id)}
+                  onSave={() => onSave && onSave(p)}
                 />
               ))}
             </div>

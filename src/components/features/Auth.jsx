@@ -31,12 +31,19 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { apiUrl } from '../../utils/api';
 
+const getApprovalStatus = (record) => String(
+  record?.approvalStatus
+  || record?.status
+  || (record?.isApproved === true ? 'approved' : record?.isApproved === false ? 'pending' : '')
+).toLowerCase();
+
 const Auth = ({ onBack, onAuthSuccess }) => {
   const { login } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState('Buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -51,6 +58,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
 
     if (!isLogin && formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -75,6 +83,40 @@ const Auth = ({ onBack, onAuthSuccess }) => {
 
       if (!response.ok) {
         throw new Error(data.message || 'Authentication failed');
+      }
+
+      if (!isLogin) {
+        const approvalStatus = getApprovalStatus(data?.user || data);
+
+        if (data?.token && data?.user) {
+          login(data.user, data.token);
+          onAuthSuccess(data.user);
+          return;
+        }
+
+        if (approvalStatus === 'approved') {
+          setSuccessMessage('This account is already approved. Sign in with your email and password.');
+          setIsLogin(true);
+          setFormData({
+            name: '',
+            email: formData.email,
+            password: '',
+            confirmPassword: ''
+          });
+          return;
+        }
+
+        setSuccessMessage(
+          'Registration submitted. The admin has been notified and your account will be approved before you can use the system.'
+        );
+        setIsLogin(true);
+        setFormData({
+          name: '',
+          email: formData.email,
+          password: '',
+          confirmPassword: ''
+        });
+        return;
       }
 
       login(data.user, data.token);
@@ -247,6 +289,17 @@ const Auth = ({ onBack, onAuthSuccess }) => {
               <p className="text-red-500 text-[10px] font-bold text-center px-4">
                 {error}
               </p>
+            )}
+
+            {successMessage && (
+              <div className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50 px-5 py-4 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-700 mb-2">
+                  {successMessage.includes('already approved') ? 'Account Ready' : 'Registration Received'}
+                </p>
+                <p className="text-xs font-bold text-emerald-900 leading-relaxed">
+                  {successMessage}
+                </p>
+              </div>
             )}
 
             <button
