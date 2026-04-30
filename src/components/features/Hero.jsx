@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 import { Search, MapPin } from 'lucide-react';
 import BackgroundBeams from '../ui/BackgroundBeams';
 
-const Hero = ({ searchQuery, setSearchQuery, categories, activeFilter, setActiveFilter }) => {
+const Hero = ({ searchQuery, setSearchQuery, categories, activeFilter, setActiveFilter, onNearMe }) => {
   return (
     <section className="relative pt-24 pb-2 flex flex-col items-center justify-center overflow-hidden">
       <BackgroundBeams />
@@ -48,9 +48,19 @@ const Hero = ({ searchQuery, setSearchQuery, categories, activeFilter, setActive
                   className="w-full bg-transparent py-4 text-base font-bold text-slate-800 outline-none placeholder:text-slate-400"
                 />
               </div>
-              <button className="bg-slate-900 text-white p-5 rounded-full hover:bg-emerald-600 transition-all shadow-xl active:scale-95 group-hover:scale-105">
-                <Search className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-2 pr-2">
+                <button 
+                  type="button"
+                  className="hidden sm:flex items-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-full font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 active:scale-95"
+                  onClick={onNearMe}
+                >
+                  <MapPin className="w-3 h-3" />
+                  Near Me
+                </button>
+                <button className="bg-slate-900 text-white p-5 rounded-full hover:bg-emerald-600 transition-all shadow-xl active:scale-95 group-hover:scale-105">
+                  <Search className="w-6 h-6" />
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>

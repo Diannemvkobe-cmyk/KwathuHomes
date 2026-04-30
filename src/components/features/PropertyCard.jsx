@@ -27,6 +27,25 @@ const PropertyCard = forwardRef(({ prop, idx, onClick, onSave, isSaved = false, 
   >
     <div className="relative rounded-[2rem] overflow-hidden mb-6 aspect-[4/5] shadow-lg group-hover:shadow-2xl transition-all duration-500">
       <img src={prop.image} alt={prop.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+      
+      {/* Under Payment Diagonal Strip */}
+      {prop.underPayment && !prop.sold && (
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <div className="absolute top-10 right-0 -translate-y-1/3 translate-x-1/3 rotate-45 bg-emerald-600 text-white px-24 py-4 font-black uppercase tracking-widest text-lg shadow-2xl z-10">
+            Under Payment
+          </div>
+        </div>
+      )}
+      
+      {/* Sold Diagonal Strip */}
+      {prop.sold && (
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <div className="absolute top-10 right-0 -translate-y-1/3 translate-x-1/3 rotate-45 bg-red-600 text-white px-24 py-4 font-black uppercase tracking-widest text-lg shadow-2xl z-10">
+            Sold
+          </div>
+        </div>
+      )}
+      
       <div className="absolute inset-3 flex flex-col justify-between pointer-events-none">
         <div className="flex justify-between items-start">
           <div className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black text-slate-900 uppercase tracking-widest shadow-sm">

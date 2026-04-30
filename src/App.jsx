@@ -36,6 +36,8 @@ import BuyerDashboard from './components/features/BuyerDashboard';
 import Auth from './components/features/Auth';
 import About from './components/features/About';
 import Contact from './components/features/Contact';
+import NearMe from './components/features/NearMe';
+import Payments from './components/features/Payments';
 import AdminDashboard from './components/features/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 import { withBuyerPhone } from './utils/engagement';
@@ -272,6 +274,17 @@ const App = () => {
     return <Auth onBack={() => setView('home')} onAuthSuccess={handleAuthSuccess} />;
   }
 
+  if (view === 'payments') {
+    return (
+      <AnimatePresence mode="wait">
+        <Payments 
+          onBack={() => { setView('home'); setSelectedProperty(null); }} 
+          property={selectedProperty}
+        />
+      </AnimatePresence>
+    );
+  }
+
   // ── Detail page ────────────────────────────────────────────────────────────
   if (selectedProperty) {
     return (
@@ -284,6 +297,7 @@ const App = () => {
           onRequireAuth={() => setView('auth')}
           onBack={() => setSelectedProperty(null)}
           onSelectProperty={(p) => setSelectedProperty(p)}
+          onPay={() => { setView('payments'); }}
           savedPropertyIds={savedPropertyIds}
           savingPropertyIds={savingPropertyIdSet}
           isSaved={savedPropertyIds.has(selectedProperty._id)}
@@ -336,6 +350,21 @@ const App = () => {
     );
   }
 
+  if (view === 'near-me') {
+    return (
+      <AnimatePresence mode="wait">
+        <NearMe 
+          onBack={() => setView('home')} 
+          properties={properties} 
+          onSelectProperty={(prop) => {
+            setSelectedProperty(prop);
+            setView('home'); // Go back to home so when detail closes it shows home
+          }} 
+        />
+      </AnimatePresence>
+    );
+  }
+
   // ── Home / listing page ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 selection:bg-emerald-100 selection:text-emerald-900 font-sans antialiased text-slate-900 dark:text-slate-100">
@@ -354,6 +383,7 @@ const App = () => {
         categories={["All", "House", "Flats", "Apartment", "Shared House"]}
         activeFilter={activeFilter}
         setActiveFilter={setActiveFilter}
+        onNearMe={() => setView('near-me')}
       />
 
       {/* Featured Properties */}

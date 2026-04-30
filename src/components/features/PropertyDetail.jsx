@@ -38,6 +38,7 @@ import {
   Heart,
   Bell,
   AlertTriangle,
+  CreditCard,
 } from 'lucide-react';
 import PropertyCard from './PropertyCard';
 import {
@@ -155,6 +156,7 @@ const PropertyDetail = ({
   onBack,
   onSelectProperty,
   onSave,
+  onPay,
   savedPropertyIds,
   savingPropertyIds,
   isSaved = false,
@@ -633,6 +635,37 @@ const PropertyDetail = ({
                 <User className="w-5 h-5 text-slate-300 shrink-0" />
               </div>
 
+              {property.sold ? (
+                <button
+                  disabled
+                  className="w-full bg-red-300 text-red-500 cursor-not-allowed font-black uppercase tracking-widest text-xs py-4 rounded-2xl flex items-center justify-center gap-3 mb-3"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Property Sold
+                </button>
+              ) : property.underPayment ? (
+                <button
+                  disabled
+                  className="w-full bg-slate-300 text-slate-500 cursor-not-allowed font-black uppercase tracking-widest text-xs py-4 rounded-2xl flex items-center justify-center gap-3 mb-3"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Property Under Payment
+                </button>
+              ) : (
+                <button
+                  onClick={() => { 
+                    if (!buyerUser) {
+                      onRequireAuth && onRequireAuth();
+                      return;
+                    }
+                    onPay && onPay();
+                  }}
+                  className="w-full bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 group mb-3"
+                >
+                  <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  Pay for Property
+                </button>
+              )}
               <button
                 onClick={handleContactOwner}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 group"

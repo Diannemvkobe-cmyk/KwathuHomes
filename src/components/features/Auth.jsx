@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiUrl } from '../../utils/api';
+import { validatePassword } from '../../utils/validation';
 
 const getApprovalStatus = (record) => String(
   record?.approvalStatus
@@ -46,6 +47,7 @@ const Auth = ({ onBack, onAuthSuccess }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,16 +56,34 @@ const Auth = ({ onBack, onAuthSuccess }) => {
     confirmPassword: ''
   });
 
+  const handlePasswordChange = (val) => {
+    setFormData({ ...formData, password: val });
+    if (!isLogin) {
+      const { isValid, message } = validatePassword(val);
+      setPasswordError(isValid ? '' : message);
+    } else {
+      setPasswordError('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccessMessage('');
 
-    if (!isLogin && formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
+    if (!isLogin) {
+      const { isValid, message } = validatePassword(formData.password);
+      if (!isValid) {
+        setError(message);
+        setLoading(false);
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        setLoading(false);
+        return;
+      }
     }
 
     const endpoint = isLogin ? '/auth/login' : '/auth/register';
@@ -251,9 +271,13 @@ const Auth = ({ onBack, onAuthSuccess }) => {
                 required
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border-2 border-slate-50 dark:border-slate-700 rounded-2xl pl-12 pr-12 py-4 text-xs font-black outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-sm"
+                className={`w-full bg-slate-50 dark:bg-slate-700/50 border-2 rounded-2xl pl-12 pr-12 py-4 text-xs font-black outline-none transition-all shadow-sm ${
+                  passwordError 
+                    ? 'border-red-400 focus:border-red-500' 
+                    : 'border-slate-50 dark:border-slate-700 focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800'
+                }`}
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => handlePasswordChange(e.target.value)}
               />
               <button
                 type="button"
@@ -263,6 +287,12 @@ const Auth = ({ onBack, onAuthSuccess }) => {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {passwordError && !isLogin && (
+              <p className="text-red-500 text-[9px] font-bold mt-[-1rem] px-4 animate-pulse">
+                {passwordError}
+              </p>
+            )}
 
             {!isLogin && (
               <div className="relative">

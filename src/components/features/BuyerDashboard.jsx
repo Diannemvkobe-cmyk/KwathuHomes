@@ -1,10 +1,10 @@
 /*
 Purpose
-- Gives buyers a simple space to manage saved homes, profile, and notifications.
+- Gives buyers a simple space to manage saved homes, profile, notifications, and payments.
 - Encourages adding a phone number so owners can reach them.
 
 How It Works
-- Shows three tabs: Saved, Buyer Profile, Notifications.
+- Shows five tabs: Saved, Payments Pending, Payment History, Buyer Profile, Notifications.
 - Reads/writes lightweight data from local storage via engagement utils.
 - Syncs profile (phone) to the server when authenticated.
 - Provides a bell panel for quick notification previews.
@@ -33,6 +33,11 @@ import {
   CheckCircle2,
   ChevronRight,
   AlertTriangle,
+  CreditCard,
+  Clock,
+  CheckCircle,
+  XCircle,
+  ArrowRightCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiUrl } from '../../utils/api';
@@ -60,11 +65,76 @@ const BuyerDashboard = ({
   const [phone, setPhone] = useState('');
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [updatingPayment, setUpdatingPayment] = useState(null);
 
   const reloadData = () => {
     setNotifications(getNotifications(user));
     const profile = getBuyerProfile(user);
     setPhone(profile?.phone || user?.phone || '');
+  };
+
+  const fetchPayments = async () => {
+    if (!token) return;
+    setLoadingPayments(true);
+    try {
+      const res = await fetch(apiUrl('/auth/payments'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingPayments(data.filter(p => p.status === 'pending'));
+        setPaymentHistory(data.filter(p => p.status !== 'pending'));
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const handleApprovePayment = async (paymentId) => {
+    if (!token) return;
+    setUpdatingPayment(paymentId);
+    try {
+      const res = await fetch(apiUrl(`/auth/payments/${paymentId}/approve`), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        await fetchPayments();
+      }
+    } catch (error) {
+      console.error('Error approving payment:', error);
+    } finally {
+      setUpdatingPayment(null);
+    }
+  };
+
+  const handleReversePayment = async (paymentId) => {
+    if (!token) return;
+    setUpdatingPayment(paymentId);
+    try {
+      const res = await fetch(apiUrl(`/auth/payments/${paymentId}/reverse`), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        await fetchPayments();
+      }
+    } catch (error) {
+      console.error('Error reversing payment:', error);
+    } finally {
+      setUpdatingPayment(null);
+    }
   };
 
   useEffect(() => {
@@ -78,6 +148,10 @@ const BuyerDashboard = ({
       window.removeEventListener('storage', onStorage);
     };
   }, [user]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [token, activeTab]);
 
   useEffect(() => {
     if (phone) {
@@ -133,6 +207,26 @@ const BuyerDashboard = ({
       setShowPhonePopup(false);
       reloadData();
     }
+  };
+
+  const getPaymentMethodName = (method) => {
+    const names = {
+      zamtel: 'Zamtel Money',
+      airtel: 'Airtel Money',
+      mtn: 'MTN Money',
+      visa: 'Visa Card',
+      mastercard: 'Mastercard',
+      paypal: 'PayPal',
+      bitcoin: 'Bitcoin'
+    };
+    return names[method] || method;
+  };
+
+  const getPropertyImage = (property) => {
+    if (!property) return null;
+    if (property.images && property.images.length > 0) return property.images[0];
+    if (property.image) return property.image;
+    return null;
   };
 
   return (
@@ -253,6 +347,25 @@ const BuyerDashboard = ({
               }`}
           >
             Saved Homes
+          </button>
+          <button
+            onClick={() => setActiveTab('payments-pending')}
+            className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeTab === 'payments-pending' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 border border-slate-100'
+              }`}
+          >
+            Payments Pending
+            {pendingPayments.length > 0 && (
+              <span className="ml-2 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[8px]">
+                {pendingPayments.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('payment-history')}
+            className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeTab === 'payment-history' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 border border-slate-100'
+              }`}
+          >
+            Payment History
           </button>
           <button
             onClick={() => setActiveTab('profile')}
@@ -378,6 +491,185 @@ const BuyerDashboard = ({
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'payments-pending' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl">
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-50">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-black uppercase tracking-[0.25em] text-slate-400">Payments on Hold</h3>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-amber-600">Pending</span>
+                </div>
+              </div>
+              
+              {loadingPayments ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-500">Loading payments...</p>
+                </div>
+              ) : pendingPayments.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                    <CreditCard className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">No Pending Payments</h3>
+                  <p className="text-slate-500 font-medium max-w-sm mx-auto">
+                    You have no payments on hold at the moment.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingPayments.map((payment) => (
+                    <div key={payment._id} className="p-6 rounded-2xl border border-slate-100 bg-slate-50/60">
+                      <div className="flex flex-col md:flex-row md:items-center gap-6">
+                        <div className="w-full md:w-24 h-24 rounded-2xl overflow-hidden bg-slate-200 flex-shrink-0">
+                          <img src={getPropertyImage(payment.property)} alt={payment.property.title} className="w-full h-full object-cover" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                                {payment.property.title}
+                              </h4>
+                              <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{payment.property.location}</span>
+                              </div>
+                            </div>
+                            <span className="text-2xl font-black text-emerald-600">
+                              {payment.amount}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Payment Method</p>
+                              <p className="text-sm font-semibold text-slate-700">
+                                {getPaymentMethodName(payment.paymentMethod)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Date Purchased</p>
+                              <p className="text-sm font-semibold text-slate-700">
+                                {formatDateTime(payment.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                            <button
+                              onClick={() => handleApprovePayment(payment._id)}
+                              disabled={updatingPayment === payment._id}
+                              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 text-white font-black uppercase tracking-widest text-xs hover:bg-emerald-700 transition-all disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              {updatingPayment === payment._id ? 'Approving...' : 'Approve Payment'}
+                            </button>
+                            <button
+                              onClick={() => handleReversePayment(payment._id)}
+                              disabled={updatingPayment === payment._id}
+                              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-500 text-white font-black uppercase tracking-widest text-xs hover:bg-red-600 transition-all disabled:opacity-50"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              {updatingPayment === payment._id ? 'Reversing...' : 'Reverse Payment'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'payment-history' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl">
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-[0.25em] text-slate-400 mb-6">Payment History</h3>
+              
+              {loadingPayments ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-500">Loading history...</p>
+                </div>
+              ) : paymentHistory.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">No Payment History</h3>
+                  <p className="text-slate-500 font-medium max-w-sm mx-auto">
+                    You haven't completed any payments yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paymentHistory.map((payment) => (
+                    <div key={payment._id} className="p-6 rounded-2xl border border-slate-100 bg-slate-50/60">
+                      <div className="flex flex-col md:flex-row md:items-center gap-6">
+                        <div className="w-full md:w-24 h-24 rounded-2xl overflow-hidden bg-slate-200 flex-shrink-0">
+                          <img src={getPropertyImage(payment.property)} alt={payment.property.title} className="w-full h-full object-cover" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                                {payment.property.title}
+                              </h4>
+                              <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{payment.property.location}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-2xl font-black text-emerald-600 block">
+                                {payment.amount}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold mt-1 ${
+                                payment.status === 'approved' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-red-100 text-red-700'
+                              }`}>
+                                {payment.status === 'approved' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Payment Method</p>
+                              <p className="text-sm font-semibold text-slate-700">
+                                {getPaymentMethodName(payment.paymentMethod)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Date Purchased</p>
+                              <p className="text-sm font-semibold text-slate-700">
+                                {formatDateTime(payment.createdAt)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Date Updated</p>
+                              <p className="text-sm font-semibold text-slate-700">
+                                {formatDateTime(payment.updatedAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
 
         {activeTab === 'profile' && (
