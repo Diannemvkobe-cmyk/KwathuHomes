@@ -17,7 +17,7 @@ Key Props
 Where It Fits
 - Opened after login for sellers to run their listings operations.
 */
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -30,10 +30,8 @@ import {
   Search,
   Bell,
   MapPin,
-  Image as ImageIcon,
   Camera,
   CheckCircle2,
-  ChevronRight,
   TrendingUp,
   Package,
   Eye,
@@ -41,13 +39,15 @@ import {
   User as UserIcon,
   Trash2,
   Menu,
-  X
+  X,
+  CreditCard,
+  Clock3
 } from 'lucide-react';
+import { apiUrl } from '../../utils/api';
 import {
   formatDateTime,
   getNotifications,
   getSellerActivity,
-  getUnreadNotificationsCount,
   markAllNotificationsRead,
 } from '../../utils/engagement';
 
@@ -210,6 +210,94 @@ const SellerEventTable = ({ title, events }) => (
                 <td className="px-8 py-5 text-sm font-semibold text-slate-700">{event.buyerEmail || 'No email'}</td>
                 <td className="px-8 py-5 text-sm font-semibold text-slate-700">{event.propertyTitle}</td>
                 <td className="px-8 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">{formatDateTime(event.createdAt)}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const PurchaseTable = ({ title, subtitle, purchases, loading, emptyMessage, actionLabel, actionIcon: ActionIcon, onAction, shouldShowAction }) => (
+  <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
+    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/60">
+      <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">{title}</h2>
+      <p className="text-sm text-slate-500 mt-2">{subtitle}</p>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+            <th className="px-8 py-5">Property</th>
+            <th className="px-8 py-5">Buyer</th>
+            <th className="px-8 py-5">Contact</th>
+            <th className="px-8 py-5">Amount</th>
+            <th className="px-8 py-5">Time</th>
+            {onAction && <th className="px-8 py-5 text-center">Action</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {loading ? (
+            <tr>
+              <td colSpan={onAction ? 6 : 5} className="px-8 py-20 text-center">
+                <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading purchases...</p>
+              </td>
+            </tr>
+          ) : purchases.length === 0 ? (
+            <tr>
+              <td colSpan={onAction ? 6 : 5} className="px-8 py-20 text-center text-sm text-slate-400">
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : (
+            purchases.map((purchase) => (
+              <tr key={purchase._id} className="hover:bg-slate-50/80 transition-colors">
+                <td className="px-8 py-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-slate-100">
+                      <img src={purchase.property?.image} alt={purchase.property?.title || 'Property'} className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-900 uppercase text-sm tracking-tight">{purchase.property?.title || 'Property removed'}</p>
+                      <div className="flex items-center gap-1 text-slate-400 text-[10px] font-bold">
+                        <MapPin className="w-3 h-3" />
+                        <span>{purchase.property?.location || 'Location unavailable'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-8 py-5">
+                  <p className="text-sm font-black text-slate-900">{purchase.buyer?.name || 'Buyer'}</p>
+                </td>
+                <td className="px-8 py-5">
+                  <p className="text-sm font-semibold text-slate-700">{purchase.buyer?.email || 'No email'}</p>
+                  <p className="text-xs font-bold text-slate-400 mt-1">{purchase.buyer?.phone || 'No phone'}</p>
+                </td>
+                <td className="px-8 py-5 font-black text-emerald-600">{purchase.amount}</td>
+                <td className="px-8 py-5">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+                    <Clock3 className="w-3.5 h-3.5" />
+                    <span>{formatDateTime(purchase.status === 'approved' ? purchase.approvedAt : purchase.createdAt)}</span>
+                  </div>
+                </td>
+                {onAction && (
+                  <td className="px-8 py-5 text-center">
+                    {shouldShowAction?.(purchase) ? (
+                      <button
+                        type="button"
+                        onClick={() => onAction(purchase)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        <ActionIcon className="w-4 h-4" />
+                        {actionLabel}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Removed</span>
+                    )}
+                  </td>
+                )}
               </tr>
             ))
           )}
@@ -733,7 +821,10 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
   });
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
   const [editingProperty, setEditingProperty] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [localNotifications, setLocalNotifications] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [detailMode, setDetailMode] = useState(null);
@@ -746,10 +837,10 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
     }));
   };
 
-  const fetchMyListings = async () => {
+  const fetchMyListings = useCallback(async () => {
     if (!token) return;
     try {
-      const response = await fetch('/api/properties/my/listings', {
+      const response = await fetch(apiUrl('/properties/my/listings'), {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -763,34 +854,92 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const loadNotifications = () => {
-    setNotifications(getNotifications(user));
-  };
+  const fetchPayments = useCallback(async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(apiUrl('/auth/payments'), {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        setPayments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching seller purchases:', error);
+    } finally {
+      setLoadingPurchases(false);
+    }
+  }, [token]);
+
+  const loadNotifications = useCallback(() => {
+    setLocalNotifications(getNotifications(user));
+  }, [user]);
 
   useEffect(() => {
-    if (activeTab === 'My Listings' && token) {
+    if ((activeTab === 'My Listings' || activeTab === 'Under Purchase' || activeTab === 'Purchase History' || activeTab === 'Notifications') && token) {
       fetchMyListings();
+      fetchPayments();
     }
-  }, [activeTab, token]);
+  }, [activeTab, token, fetchMyListings, fetchPayments]);
+
+  const saleReminderNotifications = useMemo(() => {
+    const currentListingIds = new Set(listings.map((item) => item._id));
+
+    return payments
+      .filter((payment) => payment.status === 'approved' && currentListingIds.has(payment.propertyId))
+      .map((payment) => ({
+        id: `sale-reminder:${payment._id}`,
+        title: 'Sold property ready for deletion',
+        message: `${payment.property?.title || 'This property'} was approved by ${payment.buyer?.name || 'the buyer'}. Delete the listing to remove the sold property from the marketplace.`,
+        createdAt: payment.approvedAt || payment.updatedAt || payment.createdAt,
+        read: false,
+        type: 'sale-reminder',
+        paymentId: payment._id,
+        propertyId: payment.propertyId,
+      }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [payments, listings]);
+
+  const allNotifications = useMemo(() => (
+    [...saleReminderNotifications, ...localNotifications]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  ), [saleReminderNotifications, localNotifications]);
+
+  const unreadCount = useMemo(() => (
+    allNotifications.filter((item) => item.read === false).length
+  ), [allNotifications]);
+
+  const pendingPurchases = useMemo(() => (
+    payments.filter((payment) => payment.status === 'pending')
+  ), [payments]);
+
+  const purchaseHistory = useMemo(() => (
+    payments.filter((payment) => payment.status === 'approved')
+  ), [payments]);
 
   useEffect(() => {
     if (!token) return;
 
     const interval = setInterval(() => {
-      if (activeTab === 'My Listings') {
+      if (activeTab === 'My Listings' || activeTab === 'Under Purchase' || activeTab === 'Purchase History' || activeTab === 'Notifications') {
         fetchMyListings();
+        fetchPayments();
       }
       loadNotifications();
     }, 3000);
 
     const onData = () => {
+      fetchPayments();
       loadNotifications();
     };
 
     window.addEventListener('kwathu:data-updated', onData);
     window.addEventListener('storage', onData);
+    fetchPayments();
     loadNotifications();
 
     return () => {
@@ -798,16 +947,18 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
       window.removeEventListener('kwathu:data-updated', onData);
       window.removeEventListener('storage', onData);
     };
-  }, [token, activeTab, user]);
+  }, [token, activeTab, user, fetchMyListings, fetchPayments, loadNotifications]);
 
-  const activity = useMemo(() => getSellerActivity(listings), [listings, notifications]);
-  const unreadCount = useMemo(() => getUnreadNotificationsCount(user), [user, notifications]);
+  const activity = useMemo(() => getSellerActivity(listings), [listings]);
+  useEffect(() => {
+    setNotifications(allNotifications);
+  }, [allNotifications]);
 
   const handleDeleteListing = async (id) => {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
 
     try {
-      const res = await fetch(`/api/properties/${id}`, {
+      const res = await fetch(apiUrl(`/properties/${id}`), {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`
@@ -815,6 +966,11 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
       });
       if (res.ok) {
         setListings(listings.filter((item) => item._id !== id));
+        setPayments((prev) => prev.map((payment) => (
+          payment.propertyId === id
+            ? { ...payment, propertyDeleted: true }
+            : payment
+        )));
       }
     } catch (error) {
       console.error('Error deleting listing:', error);
@@ -854,6 +1010,8 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
 
         <nav className="flex-1 space-y-2">
           <SidebarItem icon={LayoutDashboard} label="My Listings" active={activeTab === 'My Listings'} onClick={() => { setEditingProperty(null); setDetailMode(null); setActiveTab('My Listings'); setMobileSidebarOpen(false); }} />
+          <SidebarItem icon={CreditCard} label="Under Purchase" active={activeTab === 'Under Purchase'} onClick={() => { setEditingProperty(null); setDetailMode(null); setActiveTab('Under Purchase'); setMobileSidebarOpen(false); }} />
+          <SidebarItem icon={CheckCircle2} label="Purchase History" active={activeTab === 'Purchase History'} onClick={() => { setEditingProperty(null); setDetailMode(null); setActiveTab('Purchase History'); setMobileSidebarOpen(false); }} />
           <SidebarItem icon={PlusCircle} label="Add New Listing" active={activeTab === 'Add New Listing'} onClick={() => { setEditingProperty(null); setDetailMode(null); setActiveTab('Add New Listing'); setMobileSidebarOpen(false); }} />
           <SidebarItem icon={UserCircle} label="My Profile" active={activeTab === 'My Profile'} onClick={() => { setEditingProperty(null); setDetailMode(null); setActiveTab('My Profile'); setMobileSidebarOpen(false); }} />
           <SidebarItem icon={Bell} label="Notifications" active={activeTab === 'Notifications'} onClick={() => { setActiveTab('Notifications'); setMobileSidebarOpen(false); }} />
@@ -996,6 +1154,40 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
                   <CreateListingView user={user} token={token} onSuccess={() => setActiveTab('My Listings')} />
                 </div>
               )}
+              {activeTab === 'Under Purchase' && (
+                <div className="space-y-8">
+                  <div className="mb-10">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2">Under Purchase</h1>
+                    <p className="text-slate-500 font-medium">Track which properties buyers are currently paying for and when each purchase started.</p>
+                  </div>
+                  <PurchaseTable
+                    title="Properties Under Purchase"
+                    subtitle="These purchases are still waiting for buyer approval."
+                    purchases={pendingPurchases}
+                    loading={loadingPurchases}
+                    emptyMessage="No properties are under purchase right now."
+                  />
+                </div>
+              )}
+              {activeTab === 'Purchase History' && (
+                <div className="space-y-8">
+                  <div className="mb-10">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2">Purchase History</h1>
+                    <p className="text-slate-500 font-medium">Review completed purchases and remove sold properties that are still visible in your listings.</p>
+                  </div>
+                  <PurchaseTable
+                    title="Completed Property Purchases"
+                    subtitle="Approved purchases move here after the buyer confirms the payment."
+                    purchases={purchaseHistory}
+                    loading={loadingPurchases}
+                    emptyMessage="No completed purchases yet."
+                    actionLabel="Delete Sold Listing"
+                    actionIcon={Trash2}
+                    onAction={(purchase) => handleDeleteListing(purchase.propertyId)}
+                    shouldShowAction={(purchase) => !purchase.propertyDeleted}
+                  />
+                </div>
+              )}
               {activeTab === 'My Profile' && (
                 <div>
                   <div className="mb-10">
@@ -1029,21 +1221,29 @@ const SellerDashboard = ({ onLogout, onViewListing }) => {
                 </div>
               )}
               {activeTab === 'Notifications' && (
-                <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
-                  <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/60">
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">All Notifications</h2>
-                  </div>
-                  <div>
-                    {notifications.length === 0 && (
-                      <p className="px-8 py-16 text-center text-sm text-slate-400">No notifications yet.</p>
-                    )}
-                    {notifications.map((item) => (
-                      <div key={item.id} className="px-8 py-5 border-b border-slate-50 last:border-b-0">
-                        <p className="text-sm font-black text-slate-800">{item.title}</p>
-                        <p className="text-sm text-slate-600 mt-1">{item.message}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">{formatDateTime(item.createdAt)}</p>
-                      </div>
-                    ))}
+                <div className="space-y-6">
+                  {saleReminderNotifications.length > 0 && (
+                    <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 mb-2">Action Needed</p>
+                      <p className="text-sm font-semibold text-amber-900">A buyer has approved a purchase. Delete the sold property from your listings to remove it from the marketplace.</p>
+                    </div>
+                  )}
+                  <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
+                    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/60">
+                      <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">All Notifications</h2>
+                    </div>
+                    <div>
+                      {notifications.length === 0 && (
+                        <p className="px-8 py-16 text-center text-sm text-slate-400">No notifications yet.</p>
+                      )}
+                      {notifications.map((item) => (
+                        <div key={item.id} className="px-8 py-5 border-b border-slate-50 last:border-b-0">
+                          <p className="text-sm font-black text-slate-800">{item.title}</p>
+                          <p className="text-sm text-slate-600 mt-1">{item.message}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">{formatDateTime(item.createdAt)}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

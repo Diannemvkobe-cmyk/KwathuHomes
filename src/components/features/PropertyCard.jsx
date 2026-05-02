@@ -31,7 +31,7 @@ const PropertyCard = forwardRef(({ prop, idx, onClick, onSave, isSaved = false, 
       {/* Under Payment Diagonal Strip */}
       {prop.underPayment && !prop.sold && (
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
-          <div className="absolute top-10 right-0 -translate-y-1/3 translate-x-1/3 rotate-45 bg-emerald-600 text-white px-24 py-4 font-black uppercase tracking-widest text-lg shadow-2xl z-10">
+          <div className="absolute top-1/2 left-1/2 w-[160%] -translate-x-1/2 -translate-y-1/2 rotate-[-28deg] bg-emerald-600/95 text-white py-4 text-center font-black uppercase tracking-[0.35em] text-base shadow-2xl z-10">
             Under Payment
           </div>
         </div>
@@ -40,7 +40,7 @@ const PropertyCard = forwardRef(({ prop, idx, onClick, onSave, isSaved = false, 
       {/* Sold Diagonal Strip */}
       {prop.sold && (
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
-          <div className="absolute top-10 right-0 -translate-y-1/3 translate-x-1/3 rotate-45 bg-red-600 text-white px-24 py-4 font-black uppercase tracking-widest text-lg shadow-2xl z-10">
+          <div className="absolute top-1/2 left-1/2 w-[150%] -translate-x-1/2 -translate-y-1/2 rotate-[-28deg] bg-red-600/95 text-white py-4 text-center font-black uppercase tracking-[0.35em] text-base shadow-2xl z-10">
             Sold
           </div>
         </div>

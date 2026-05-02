@@ -72,6 +72,10 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const sortLogsByLatest = (items = []) => (
+  [...items].sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))
+);
+
 const AdminDashboard = ({ onExit }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('Overview');
@@ -157,7 +161,7 @@ const AdminDashboard = ({ onExit }) => {
           const l = await fetch(apiUrl('/admin/logs'));
           if (!l.ok) throw new Error('Failed to load logs');
           const ldata = await l.json();
-          setLogs(Array.isArray(ldata) ? ldata : []);
+          setLogs(sortLogsByLatest(Array.isArray(ldata) ? ldata : []));
           // Resolve user names for any userId/ownerId present
           const ids = new Set();
           (Array.isArray(ldata) ? ldata : []).forEach(item => {
@@ -186,7 +190,7 @@ const AdminDashboard = ({ onExit }) => {
     run();
   }, [activeTab]);
 
-  const filteredLogs = logs.filter((l) => {
+  const filteredLogs = sortLogsByLatest(logs.filter((l) => {
     const levelOk = logsLevel === 'All' || l.level === logsLevel;
     if (!levelOk) return false;
     const q = logsQuery.trim().toLowerCase();
@@ -194,7 +198,7 @@ const AdminDashboard = ({ onExit }) => {
     const ctx = l.context || {};
     const hay = (l.message || '') + ' ' + JSON.stringify(ctx);
     return hay.toLowerCase().includes(q);
-  });
+  }));
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / logsPageSize));
   const page = Math.min(logsPage, totalPages);
   const pagedLogs = filteredLogs.slice((page - 1) * logsPageSize, (page - 1) * logsPageSize + logsPageSize);
